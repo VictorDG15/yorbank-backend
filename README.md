@@ -1,412 +1,304 @@
-# yorbank-backend
+# YBank Core Banking API
 
+[![Java 21](https://img.shields.io/badge/Java-21-orange?logo=openjdk&logoColor=white)](https://openjdk.org/)
+[![Spring Boot 3.3.5](https://img.shields.io/badge/Spring%20Boot-3.3.5-brightgreen?logo=springboot&logoColor=white)](https://spring.io/projects/spring-boot)
+[![CI/CD](https://img.shields.io/badge/CI%2FCD-GitHub%20Actions-blue?logo=githubactions&logoColor=white)](#cicd-github-actions)
+[![PostgreSQL 16](https://img.shields.io/badge/Database-PostgreSQL%2016-blue?logo=postgresql&logoColor=white)](https://www.postgresql.org/)
+[![Redis](https://img.shields.io/badge/Cache-Redis-red?logo=redis&logoColor=white)](https://redis.io/)
+[![Apache Kafka](https://img.shields.io/badge/Event--Driven-Apache%20Kafka-black?logo=apachekafka&logoColor=white)](https://kafka.apache.org/)
 
+Backend de core bancario moderno para portafolios profesionales, inspirado en flujos reales de banca móvil. Expone una API REST con autenticación JWT, cuentas, tarjetas, transferencias internas e interbancarias, pagos, recargas, préstamos digitales y generación de cronogramas PDF.
 
-\[!\[Java Version](https://img.shields.io/badge/Java-21-orange?logo=openjdk\&logoColor=white)](https://openjdk.org/)
+El proyecto combina Spring Boot, PostgreSQL, Redis, Kafka, Flyway y Docker para ofrecer una base local reproducible y cercana a un entorno bancario transaccional.
 
-\[!\[Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.3.5-brightgreen?logo=springboot\&logoColor=white)](https://spring.io/projects/spring-boot)
+---
 
-\[!\[GitHub Actions CI](https://img.shields.io/badge/CI%2FCD-GitHub%20Actions-blue?logo=githubactions\&logoColor=white)](#cicd-github-actions)
+## Arquitectura del Sistema
 
-\[!\[Database](https://img.shields.io/badge/Database-PostgreSQL%2016-blue?logo=postgresql\&logoColor=white)](https://www.postgresql.org/)
-
-\[!\[Cache \& Session](https://img.shields.io/badge/Cache-Redis-red?logo=redis\&logoColor=white)](https://redis.io/)
-
-\[!\[Event Driven](https://img.shields.io/badge/Event--Driven-Apache%20Kafka-black?logo=apachekafka\&logoColor=white)](https://kafka.apache.org/)
-
-
-
-Un backend de core bancario robusto y moderno para portafolios profesionales, inspirado en las necesidades y flujos de negocio reales de la banca móvil (App Móvil Flutter / Web). 
-
-
-
-Este sistema proporciona una arquitectura limpia basada en dominios y servicios para gestionar autenticación segura con JWT, simulación y desembolso de préstamos con generación matemática de archivos PDF sin dependencias externas, transferencias bancarias internas e interbancarias impulsadas por eventos, administración de tarjetas y pagos de servicios públicos y digitales.
-
-
-
-\---
-
-
-
-\##  Arquitectura del Sistema
-
-
-
-El backend está diseñado siguiendo una arquitectura de capas orientada a dominios autónomos. Utiliza un esquema transaccional directo con `JdbcTemplate` para optimizar el rendimiento en consultas críticas y flujos financieros complejos, mientras que aprovecha `Spring Data JPA` en los flujos principales de entidades base.
-
-
+El backend sigue una arquitectura por dominios dentro del paquete `com.ybank.core`. Usa Spring Data JPA para entidades base y `JdbcTemplate` para flujos financieros donde se requiere control explícito sobre SQL, bloqueos y transacciones.
 
 ```mermaid
-
 graph TD
+    Client[Cliente / App móvil / Postman] -->|REST| Security[Spring Security / JWT Filter]
 
-&#x20;   Client\[Cliente / App Flutter / Postman] -->|Peticiones REST| Security\[Spring Security / JWT Filter]
+    subgraph Backend[YBank Core Banking API]
+        Security --> Auth[AuthController]
+        Security --> Account[AccountController]
+        Security --> Card[CardController]
+        Security --> Transfer[TransferController]
+        Security --> Payment[PaymentController]
+        Security --> Loan[LoanController]
 
-&#x20;   
+        Auth --> AuthService[AuthService]
+        AuthService --> JwtService[JwtService]
+        AuthService --> DBUsers[(PostgreSQL)]
+        AuthService --> Redis[(Redis)]
 
-&#x20;   subgraph Backend \[YBank Core Banking API]
+        Account --> DBAccounts[(PostgreSQL)]
+        Card --> JDBC[JdbcTemplate]
+        Transfer --> JDBC
+        Payment --> JDBC
+        Loan --> JDBC
 
-&#x20;       Security --> Auth\[AuthController]
+        Transfer -->|Evento| Kafka[Apache Kafka]
+        Loan -->|PDF en bytes| PDF[Simple PDF Generator]
+    end
 
-&#x20;       Security --> Account\[AccountController]
-
-&#x20;       Security --> Card\[CardController]
-
-&#x20;       Security --> Transfer\[TransferController]
-
-&#x20;       Security --> Payment\[PaymentController]
-
-&#x20;       Security --> Loan\[LoanController]
-
-&#x20;       
-
-&#x20;       Auth --> AuthService\[AuthService]
-
-&#x20;       AuthService --> JWT\[JwtService]
-
-&#x20;       AuthService --> DB\_Users\[(PostgreSQL)]
-
-&#x20;       AuthService --> Redis\[(Redis - OTP Demo Cache)]
-
-&#x20;       
-
-&#x20;       Account --> DB\_Acc\[(PostgreSQL)]
-
-&#x20;       Card --> JDBC\[JdbcTemplate - Direct SQL]
-
-&#x20;       Transfer --> JDBC
-
-&#x20;       Payment --> JDBC
-
-&#x20;       Loan --> JDBC
-
-&#x20;       
-
-&#x20;       Transfer -->|Produce evento| Kafka\[Apache Kafka - Topic: banking.transfer.completed]
-
-&#x20;       Loan -->|Generación matemática pura| PDF\[SimplePdf Generator]
-
-&#x20;   end
-
-
-
-&#x20;   subgraph Infraestructura \[Infraestructura Local Docker]
-
-&#x20;       Redis
-
-&#x20;       DB\_Users
-
-&#x20;       DB\_Acc
-
-&#x20;       JDBC --> PostgreSQL\[(PostgreSQL 16)]
-
-&#x20;       Flyway\[Flyway Migrations] -->|Control de versiones y Semillas| PostgreSQL
-
-&#x20;   end
-
-
-
-&#x20;   style Client fill:#eceff1,stroke:#37474f,stroke-width:2px;
-
-&#x20;   style Security fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px;
-
-&#x20;   style Backend fill:#e3f2fd,stroke:#1565c0,stroke-width:2px;
-
-&#x20;   style Infraestructura fill:#efebe9,stroke:#4e342e,stroke-width:2px;
-
+    subgraph Infra[Infraestructura local Docker]
+        Redis
+        Kafka
+        DBUsers
+        DBAccounts
+        JDBC --> PostgreSQL[(PostgreSQL 16)]
+        Flyway[Flyway Migrations] --> PostgreSQL
+    end
 ```
 
-
-
-\---
-
-
-
-\##  Stack Tecnológico y Racional Técnico
-
-
-
-\*   \*\*Java 21\*\*: Uso de características modernas de lenguaje como \*Records\* para DTOs limpios, bloques de texto para consultas SQL y mejoras de rendimiento.
-
-\*   \*\*Spring Boot 3.3.5\*\*: Base para el desarrollo rápido y estructurado del microservicio.
-
-\*   \*\*Spring Security \& JWT\*\*: Pipeline de seguridad robusto que valida firmas tokens JWT de forma stateless y restringe endpoints según el rol (`CUSTOMER`, `ADMIN`).
-
-\*   \*\*Spring Data JPA / Hibernate\*\*: Utilizado para la gestión del ciclo de vida de entidades persistentes complejas como usuarios y cuentas bancarias.
-
-\*   \*\*JdbcTemplate (Direct SQL)\*\*: Para optimizar el rendimiento y controlar explícitamente los bloqueos de base de datos (`SELECT ... FOR UPDATE`) en transferencias, pagos y desembolsos de préstamos para evitar condiciones de carrera (\*Race Conditions\*).
-
-\*   \*\*PostgreSQL 16\*\*: Motor relacional de grado empresarial para garantizar consistencia ACID en la base de datos transaccional.
-
-\*   \*\*Flyway\*\*: Gestión y versionamiento de la base de datos mediante migraciones de bases de datos automáticas al iniciar la aplicación.
-
-\*   \*\*Redis\*\*: Utilizado para almacenamiento rápido en memoria y validaciones de tokens / OTPs temporales.
-
-\*   \*\*Apache Kafka\*\*: Soporte para arquitectura orientada a eventos para notificar transferencias completadas de manera asíncrona mediante el topic `banking.transfer.completed`.
-
-\*   \*\*OpenAPI / Swagger\*\*: Auto-documentación interactiva del API.
-
-\*   \*\*Docker \& Docker Compose\*\*: Contenerización de servicios externos (BD, Redis, Kafka) para una ejecución local rápida y reproducible.
-
-
-
-\---
-
-
-
-\##  Estructura del Código
-
-
-
-El backend está organizado por dominios de negocio funcionales dentro de `com.ybank.core`:
-
-
-
-\*   \[`auth`](file:///c:/Users/USER/Desktop/ybank-core-banking-api/src/main/java/com/ybank/core/auth): Registro de clientes, inicio de sesión seguro en 2 pasos (OTP demo), servicio de generación y validación de tokens JWT.
-
-\*   \[`account`](file:///c:/Users/USER/Desktop/ybank-core-banking-api/src/main/java/com/ybank/core/account): Consultas de saldos consolidados, detalle de cuentas de ahorro o corriente, historial de movimientos financieros.
-
-\*   \[`card`](file:///c:/Users/USER/Desktop/ybank-core-banking-api/src/main/java/com/ybank/core/card): Administración de tarjetas asociadas al cliente (activación o bloqueo temporal de seguridad).
-
-\*   \[`transfer`](file:///c:/Users/USER/Desktop/ybank-core-banking-api/src/main/java/com/ybank/core/transfer): Transferencias entre cuentas internas de YBank y hacia bancos externos (con cálculo dinámico de comisiones por banco). Integra la publicación de eventos en Kafka.
-
-\*   \[`payment`](file:///c:/Users/USER/Desktop/ybank-core-banking-api/src/main/java/com/ybank/core/payment): Pago de servicios básicos (luz, agua, internet, educación), recargas móviles y pagos virtuales simplificados mediante funcionalidad tipo "Yape".
-
-\*   \[`loan`](file:///c:/Users/USER/Desktop/ybank-core-banking-api/src/main/java/com/ybank/core/loan): Motor de préstamos digitales. Ejecuta simulaciones de crédito con amortización francesa, evalúa la capacidad de pago del cliente, desembolsa fondos directamente en cuenta de ahorros, y genera dinámicamente un cronograma detallado de cuotas en formato PDF codificado en bytes puros sin librerías externas.
-
-\*   \[`common`](file:///c:/Users/USER/Desktop/ybank-core-banking-api/src/main/java/com/ybank/core/common): Estructura estandarizada de respuestas del API (`ApiResponse`) y manejador global de excepciones del negocio.
-
-\*   \[`config`](file:///c:/Users/USER/Desktop/ybank-core-banking-api/src/main/java/com/ybank/core/config): Configuración del middleware de seguridad y definición de la especificación OpenAPI de Swagger.
-
-
-
-\---
-
-
-
-\##  Diseño de la Base de Datos
-
-
-
-Las migraciones de bases de datos son administradas por Flyway ubicadas en \[`db/migration`](file:///c:/Users/USER/Desktop/ybank-core-banking-api/src/main/resources/db/migration). El esquema consta de 18 tablas detalladas a continuación:
-
-
-
-| Tabla | Propósito | Relaciones Principales |
-
-| :--- | :--- | :--- |
-
-| `users` | Entidad principal de credenciales, datos de acceso y roles (`CUSTOMER`, `ADMIN`). | - |
-
-| `customer\_profiles` | Información de contacto del cliente (teléfono, dirección, segmento de cliente como "ORO"). | `customer\_id` ➔ `users(id)` |
-
-| `accounts` | Cuentas bancarias activas del cliente, con divisa (PEN/USD) y saldo en tiempo real. | `customer\_id` ➔ `users(id)` |
-
-| `account\_movements` | Historial de ingresos y egresos de las cuentas. Categorizado por tipo (Sueldo, Yape, QR, etc.). | `account\_id` ➔ `accounts(id)` |
-
-| `user\_cards` | Tarjetas de débito o crédito asociadas con número enmascarado y estado de bloqueo. | `customer\_id` ➔ `users(id)` |
-
-| `transfers` | Registro histórico de transferencias internas y a otros bancos. | `customer\_id` ➔ `users(id)` |
-
-| `external\_banks` | Catálogo de bancos nacionales externos con sus respectivas tarifas de transferencia. | - |
-
-| `beneficiaries` | Agenda de contactos bancarios frecuentes guardados por el cliente. | `customer\_id` ➔ `users(id)` |
-
-| `yape\_contacts` | Contactos telefónicos habilitados para pagos inmediatos en red móvil. | `customer\_id` ➔ `users(id)` |
-
-| `yape\_payments` | Transferencias inmediatas asociadas a números telefónicos directos. | `customer\_id` ➔ `users(id)` |
-
-| `mobile\_operators` | Operadores móviles válidos para recargas de saldo (Claro, Movistar, Entel, Bitel). | - |
-
-| `mobile\_recharges` | Transacciones de recarga de saldo celular desde cuentas bancarias. | `customer\_id` ➔ `users(id)` |
-
-| `service\_bills` | Directorio de empresas prestadoras de servicios básicos afiliadas (Luz, Agua, etc.). | - |
-
-| `bill\_payments` | Registro de boletas pagadas y transacciones de servicios públicos. | `customer\_id` ➔ `users(id)` |
-
-| `loan\_products` | Tipos de préstamos ofrecidos (Personal Oro, Emprendedor, etc.) con sus tasas y plazos. | - |
-
-| `loan\_applications` | Préstamos solicitados y desembolsados con resumen de costos y TCEA. | `customer\_id` ➔ `users(id)` |
-
-| `loan\_installments` | Cuotas del cronograma del préstamo con desglose de capital, interés, seguro y comisión. | `loan\_application\_id` ➔ `loan\_applications(id)` |
-
-| `notifications` | Bandeja de entrada de notificaciones seguras de la app móvil para el cliente. | `customer\_id` ➔ `users(id)` |
-
-
-
-\---
-
-
-
-\##  Guía de Ejecución Local
-
-
-
-\### Prerrequisitos
-
-\*   \*\*JDK 21\*\* instalado localmente.
-
-\*   \*\*Maven 3.9+\*\* (opcional, se puede usar `./mvnw`).
-
-\*   \*\*Docker Desktop\*\* (con soporte para Compose).
-
-
-
-\### Paso 1: Levantar Infraestructura Externa
-
-Inicia la base de datos PostgreSQL, Redis y Kafka utilizando Docker Compose:
-
-```bash
-
-docker compose up -d
-
+---
+
+## Stack Tecnológico
+
+- **Java 21**: versión base del proyecto.
+- **Spring Boot 3.3.5**: framework principal para la API REST.
+- **Spring Security + JWT**: autenticación stateless y protección de endpoints.
+- **Spring Data JPA / Hibernate**: persistencia de entidades base.
+- **JdbcTemplate**: SQL directo para operaciones financieras críticas.
+- **PostgreSQL 16**: base de datos transaccional.
+- **Flyway**: migraciones versionadas en `src/main/resources/db/migration`.
+- **Redis**: soporte de cache y OTP demo.
+- **Apache Kafka**: publicación de eventos de transferencias.
+- **OpenAPI / Swagger UI**: documentación interactiva de la API.
+- **Docker / Docker Compose**: infraestructura local reproducible.
+- **GitHub Actions**: pipeline de build y verificación.
+
+---
+
+## Estructura del Código
+
+```text
+src/main/java/com/ybank/core
+├── account      # Cuentas, saldos y movimientos
+├── auth         # Registro, login, OTP y JWT
+├── card         # Tarjetas del cliente
+├── common       # ApiResponse, excepciones y manejo global de errores
+├── config       # Seguridad y OpenAPI
+├── loan         # Simulación, desembolso y PDF de préstamos
+├── payment      # Servicios, recargas y pagos tipo Yape
+└── transfer     # Transferencias internas, externas y eventos Kafka
 ```
 
+Archivos relevantes:
 
+- [`pom.xml`](pom.xml): dependencias Maven y configuración del build.
+- [`docker-compose.yml`](docker-compose.yml): API, PostgreSQL, Redis, Zookeeper y Kafka.
+- [`src/main/resources/application.yml`](src/main/resources/application.yml): configuración de Spring Boot.
+- [`src/main/resources/db/migration`](src/main/resources/db/migration): migraciones Flyway.
+- [`.github/workflows/ci.yml`](.github/workflows/ci.yml): pipeline CI/CD.
 
-> \[!NOTE]
+---
 
-> Las credenciales de base de datos por defecto se auto-configuran con el archivo `docker-compose.yml` (`ybank` / `ybank123`).
+## Base de Datos
 
+El esquema se crea mediante Flyway al iniciar la aplicación. Las migraciones actuales incluyen:
 
+| Migración | Contenido principal |
+| --- | --- |
+| `V1__init.sql` | Usuarios, cuentas y transferencias base. |
+| `V2__seed_victor_login.sql` | Usuario demo, cuenta y tarjeta. |
+| `V3__mobile_banking_demo_data.sql` | Perfil de cliente, movimientos, beneficiarios, notificaciones, servicios y productos de préstamo. |
+| `V4__transactional_banking_flows.sql` | Bancos externos, contactos Yape, pagos Yape, operadores móviles y recargas. |
+| `V5__real_loan_applications.sql` | Solicitudes de préstamo y cuotas del cronograma. |
 
-\### Paso 2: Configurar Variables de Entorno (Opcional)
+Tablas principales:
 
-Puedes guiarte del archivo \[`.env.example`](file:///c:/Users/USER/Desktop/ybank-core-banking-api/.env.example) para crear un archivo `.env` en la raíz con las siguientes variables si necesitas cambiar los puertos de la infraestructura local:
+| Tabla | Propósito |
+| --- | --- |
+| `users` | Credenciales, datos de acceso y roles. |
+| `customer_profiles` | Información de contacto y segmento del cliente. |
+| `accounts` | Cuentas bancarias y saldos. |
+| `account_movements` | Historial de movimientos. |
+| `user_cards` | Tarjetas asociadas al cliente. |
+| `transfers` | Transferencias internas y externas. |
+| `external_banks` | Catálogo de bancos externos y comisiones. |
+| `beneficiaries` | Contactos bancarios frecuentes. |
+| `yape_contacts` | Contactos para pagos inmediatos. |
+| `yape_payments` | Pagos tipo Yape. |
+| `mobile_operators` | Operadores móviles. |
+| `mobile_recharges` | Recargas móviles. |
+| `service_bills` | Servicios afiliados. |
+| `bill_payments` | Pagos de servicios. |
+| `loan_products` | Productos de préstamo. |
+| `loan_applications` | Solicitudes y desembolsos. |
+| `loan_installments` | Cuotas de préstamo. |
+| `notifications` | Notificaciones del cliente. |
 
-\*   `DB\_URL`: JDBC URL de PostgreSQL.
+---
 
-\*   `DB\_USER` / `DB\_PASSWORD`: Credenciales del motor PostgreSQL.
+## Ejecución Local
 
-\*   `REDIS\_HOST` / `REDIS\_PORT`: Conexión al servidor caché.
+### Prerrequisitos
 
-\*   `KAFKA\_BOOTSTRAP\_SERVERS`: Direcciones para el cliente de mensajería Kafka.
+- JDK 21.
+- Maven 3.9 o superior.
+- Docker Desktop con Docker Compose.
 
-\*   `JWT\_SECRET`: Llave simétrica de al menos 256 bits para firmar los tokens JWT.
-
-
-
-\### Paso 3: Compilar y Ejecutar la Aplicación
-
-Ejecuta los siguientes comandos para compilar la aplicación, ejecutar la suite de pruebas unitarias y levantar el servidor web:
+### Opción 1: ejecutar todo con Docker Compose
 
 ```bash
+docker compose up --build
+```
 
-mvn clean install
+Con esta opción la API queda expuesta en:
 
+- Swagger UI: [http://localhost:8081/swagger-ui.html](http://localhost:8081/swagger-ui.html)
+- Healthcheck: [http://localhost:8081/actuator/health](http://localhost:8081/actuator/health)
+
+### Opción 2: ejecutar infraestructura en Docker y API con Maven
+
+Levanta PostgreSQL, Redis y Kafka:
+
+```bash
+docker compose up -d postgres redis kafka
+```
+
+Configura las variables para usar el PostgreSQL publicado por Docker en el puerto `5433`:
+
+```powershell
+$env:DB_URL="jdbc:postgresql://localhost:5433/ybank"
+$env:DB_USER="ybank"
+$env:DB_PASSWORD="ybank123"
+$env:REDIS_HOST="localhost"
+$env:REDIS_PORT="6379"
+$env:KAFKA_BOOTSTRAP_SERVERS="localhost:9092"
+```
+
+Compila y ejecuta:
+
+```bash
+mvn clean verify
 mvn spring-boot:run
-
 ```
 
+Con esta opción la API queda expuesta en:
 
+- Swagger UI: [http://localhost:8080/swagger-ui.html](http://localhost:8080/swagger-ui.html)
+- Healthcheck: [http://localhost:8080/actuator/health](http://localhost:8080/actuator/health)
 
-El backend iniciará en el puerto \*\*`8080`\*\* por defecto.
+### Usuario demo
 
+Las migraciones crean un usuario demo para pruebas locales:
 
+| Campo | Valor |
+| --- | --- |
+| Documento | `77777777` |
+| Email | `victor@ybank.pe` |
+| Password | `123456` |
+| 2FA | Desactivado |
 
-\*   \*\*API Documentation (Swagger UI)\*\*: \[http://localhost:8080/swagger-ui.html](http://localhost:8080/swagger-ui.html)
+---
 
-\*   \*\*Actuator Healthcheck\*\*: \[http://localhost:8080/actuator/health](http://localhost:8080/actuator/health)
+## Variables de Entorno
 
+| Variable | Valor por defecto |
+| --- | --- |
+| `DB_URL` | `jdbc:postgresql://localhost:5432/ybank` |
+| `DB_USER` | `ybank` |
+| `DB_PASSWORD` | `ybank123` |
+| `REDIS_HOST` | `localhost` |
+| `REDIS_PORT` | `6379` |
+| `KAFKA_BOOTSTRAP_SERVERS` | `localhost:9092` |
+| `SERVER_PORT` | `8080` |
+| `JWT_SECRET` | Llave demo configurada en `application.yml` |
 
+Puedes usar [`.env.example`](.env.example) como referencia para entornos locales o Docker.
 
-\---
+---
 
+## Endpoints Principales
 
+Salvo los endpoints públicos de autenticación, las rutas requieren:
 
-\##  Catálogo de Endpoints Clave
+```http
+Authorization: Bearer <JWT_TOKEN>
+```
 
+### Autenticación (`/api/v1/auth`)
 
+| Método | Ruta | Descripción |
+| --- | --- | --- |
+| `POST` | `/register` | Registra un cliente. |
+| `POST` | `/login/prepare` | Valida credenciales y prepara el flujo OTP. |
+| `POST` | `/login` | Login directo para desarrollo. |
+| `POST` | `/otp/verify` | Verifica OTP y devuelve JWT. |
+| `GET` | `/me` | Devuelve el cliente autenticado. |
 
-Todos los endpoints (excepto los de autenticación pública) requieren la cabecera `Authorization: Bearer <JWT\_TOKEN>`.
+### Cuentas (`/api/v1/accounts`)
 
+| Método | Ruta | Descripción |
+| --- | --- | --- |
+| `GET` | `/` | Lista las cuentas del cliente. |
+| `GET` | `/home-summary` | Resumen para pantalla principal. |
+| `GET` | `/movements` | Últimos movimientos. |
+| `GET` | `/{accountNumber}` | Detalle de una cuenta. |
 
+### Tarjetas (`/api/v1/cards`)
 
-\###  Autenticación y Registro (`/api/v1/auth`)
+| Método | Ruta | Descripción |
+| --- | --- | --- |
+| `GET` | `/` | Lista tarjetas del cliente. |
+| `PATCH` | `/{id}/status` | Activa o bloquea una tarjeta. |
 
-\*   `POST /register`: Registrar un nuevo cliente.
+### Transferencias (`/api/v1/transfers`)
 
-\*   `POST /login/prepare`: Iniciar autenticación enviando número de documento de identidad y contraseña. Valida las credenciales y devuelve datos para el paso OTP (2FA).
+| Método | Ruta | Descripción |
+| --- | --- | --- |
+| `GET` | `/banks` | Lista bancos externos y comisiones. |
+| `POST` | `/` | Procesa una transferencia. |
+| `GET` | `/` | Lista historial de transferencias. |
 
-\*   `POST /login`: Autenticación directa por credenciales para desarrollo (sin OTP).
+### Pagos (`/api/v1/payments`)
 
-\*   `POST /otp/verify`: Envía el código OTP recibido para obtener el token final de acceso `accessToken`.
+| Método | Ruta | Descripción |
+| --- | --- | --- |
+| `GET` | `/services` | Lista servicios disponibles. |
+| `POST` | `/` | Paga un servicio. |
+| `GET` | `/yape-contacts` | Lista contactos Yape. |
+| `POST` | `/yape` | Envía un pago inmediato. |
+| `GET` | `/mobile-operators` | Lista operadores móviles. |
+| `POST` | `/recharges` | Realiza una recarga móvil. |
 
-\*   `GET /me`: Obtener información del perfil del usuario autenticado.
+### Préstamos (`/api/v1/loans`)
 
+| Método | Ruta | Descripción |
+| --- | --- | --- |
+| `GET` | `/products` | Lista productos de préstamo. |
+| `POST` | `/simulate` | Simula crédito con amortización francesa. |
+| `POST` | `/applications` | Solicita y desembolsa préstamo. |
+| `GET` | `/applications` | Lista préstamos del cliente. |
+| `GET` | `/applications/{id}/schedule.pdf` | Descarga cronograma PDF. |
 
+---
 
-\###  Cuentas y Tarjetas (`/api/v1/accounts`, `/api/v1/cards`)
+## CI/CD: GitHub Actions
 
-\*   `GET /accounts`: Listar todas las cuentas de ahorros/corrientes con sus saldos respectivos.
+El pipeline está definido en [`.github/workflows/ci.yml`](.github/workflows/ci.yml). Se ejecuta en cada `push` a `main` o `develop`, y en cada `pull_request` hacia `main`.
 
-\*   `GET /accounts/home-summary`: Resumen simplificado de saldo consolidated y tarjeta principal para la pantalla principal de la App.
+Pasos principales:
 
-\*   `GET /accounts/movements`: Obtener los últimos 20 movimientos transaccionales del cliente.
+1. Descarga el código fuente.
+2. Configura Java 21 con Temurin.
+3. Habilita cache de Maven.
+4. Imprime versiones de Java y Maven.
+5. Ejecuta `mvn -B clean verify`.
 
-\*   `GET /cards`: Mostrar tarjetas de débito/crédito vinculadas.
+---
 
-\*   `PATCH /cards/{id}/status`: Activar o bloquear temporalmente una tarjeta (`ACTIVE` o `LOCKED`).
+## Pruebas
 
+Para ejecutar la suite local:
 
+```bash
+mvn test
+```
 
-\###  Transferencias (`/api/v1/transfers`)
-
-\*   `GET /transfers/banks`: Listar bancos del sistema y sus tarifas de transferencia interbancaria.
-
-\*   `POST /transfers`: Procesar transferencia. Si es interna (`YBANK`), se procesa inmediatamente y se actualizan los saldos de forma atómica en base de datos. Si es externa, se calcula comisión y se envía en estado pendiente publicando un mensaje a Apache Kafka.
-
-\*   `GET /transfers`: Obtener historial de transferencias enviadas.
-
-
-
-\###  Pagos y Recargas (`/api/v1/payments`)
-
-\*   `GET /payments/services`: Lista servicios disponibles para pagar (luz, agua, teléfono, etc.).
-
-\*   `POST /payments`: Ejecutar el pago de un recibo de servicios públicos.
-
-\*   `POST /payments/recharge`: Realizar recargas de saldo móvil a operadores nacionales.
-
-\*   `POST /payments/yape`: Enviar dinero de forma inmediata utilizando únicamente el número telefónico del destinatario.
-
-
-
-\###  Préstamos Financieros (`/api/v1/loans`)
-
-\*   `GET /loans/products`: Listar productos de préstamos habilitados.
-
-\*   `POST /loans/simulate`: Simular un préstamo bajo sistema de amortización francés. Calcula la TCEA real y analiza la capacidad crediticia del cliente (`SALUDABLE`, `AJUSTADO`, `RIESGO\_ALTO`) comparando la cuota mensual contra su nivel de ingresos declarados.
-
-\*   `POST /loans/applications`: Solicitar préstamo formalmente. Desembolsa el capital directamente en la cuenta bancaria del cliente y programa el cronograma de cuotas futuras.
-
-\*   `GET /loans/applications`: Historial de préstamos activos del cliente.
-
-\*   `GET /loans/applications/{id}/schedule.pdf`: Genera y descarga el PDF formal con el cronograma detallado de cuotas de amortización.
-
-
-
-\---
-
-
-
-\## CI/CD: GitHub Actions
-
-
-
-El proyecto cuenta con un flujo automatizado de integración continua desarrollado en GitHub Actions ubicado en \[`.github/workflows/ci.yml`](file:///.github/workflows/ci.yml). 
-
-
-
-Este pipeline realiza los siguientes pasos en cada `push` a las ramas `main` o `develop`, y en cada `pull\_request` dirigido a `main`:
-
-1\.  \*\*Checkout Code\*\*: Descarga el código fuente del repositorio en el agente virtual de ejecución (`ubuntu-latest`).
-
-2\.  \*\*Set up Java JDK 21\*\*: Configura el entorno virtual con el SDK de Java 21 (versión Temurin) y activa el almacenamiento en caché nativo de Maven (`cache: 'maven'`) para acelerar la descarga de dependencias en compilaciones futuras.
-
-3\.  \*\*Check Environment Versions\*\*: Imprime en consola las versiones específicas de Java y Maven utilizadas para auditoría técnica.
-
-4\.  \*\*Build, Test and Package\*\*: Ejecuta el comando de Maven `mvn -B clean verify` que compila el código, ejecuta toda la suite de pruebas unitarias implementadas (incluyendo \[`JwtServiceTest`](file:///c:/Users/USER/Desktop/ybank-core-banking-api/src/test/java/com/ybank/core/auth/JwtServiceTest.java)) y genera el archivo empaquetado `.jar` final, garantizando que el código de la rama nunca sufra de regresiones ni errores de compilación antes del merge.
-
-
-
+Actualmente el proyecto incluye pruebas para el servicio JWT en [`src/test/java/com/ybank/core/auth/JwtServiceTest.java`](src/test/java/com/ybank/core/auth/JwtServiceTest.java).
