@@ -1,0 +1,10 @@
+{
+  "info": {"name": "YBank Core Banking API", "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"},
+  "variable": [{"key":"baseUrl","value":"http://localhost:8080"},{"key":"token","value":""}],
+  "item": [
+    {"name":"Register","request":{"method":"POST","header":[{"key":"Content-Type","value":"application/json"}],"url":"{{baseUrl}}/api/v1/auth/register","body":{"mode":"raw","raw":"{\"documentNumber\":\"71234567\",\"email\":\"yordi@ybank.pe\",\"fullName\":\"Yordi Diaz\",\"password\":\"Demo12345\"}"}}},
+    {"name":"Login","request":{"method":"POST","header":[{"key":"Content-Type","value":"application/json"}],"url":"{{baseUrl}}/api/v1/auth/login","body":{"mode":"raw","raw":"{\"email\":\"yordi@ybank.pe\",\"password\":\"Demo12345\"}"}}},
+    {"name":"Accounts","request":{"method":"GET","header":[{"key":"Authorization","value":"Bearer {{token}}"}],"url":"{{baseUrl}}/api/v1/accounts"}},
+    {"name":"Create Transfer","request":{"method":"POST","header":[{"key":"Content-Type","value":"application/json"},{"key":"Authorization","value":"Bearer {{token}}"}],"url":"{{baseUrl}}/api/v1/transfers","body":{"mode":"raw","raw":"{\"originAccount\":\"001-101-00045821\",\"destinationAccount\":\"001-102-00090214\",\"amount\":150.50,\"currency\":\"PEN\",\"description\":\"Transferencia demo\"}"}}}
+  ]
+}

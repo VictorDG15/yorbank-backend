@@ -1,0 +1,35 @@
+spring:
+  application:
+    name: ybank-core-banking-api
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/ybank}
+    username: ${DB_USER:ybank}
+    password: ${DB_PASSWORD:ybank123}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+  flyway:
+    enabled: true
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+server:
+  port: ${SERVER_PORT:8080}
+app:
+  security:
+    jwt-secret: ${JWT_SECRET:0123456789012345678901234567890123456789012345678901234567890123}
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
